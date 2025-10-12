@@ -1,0 +1,27 @@
+[project]
+name = "peak2vec"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = "==3.12.10"
+dependencies = [
+    "igraph>=0.11.9",
+    "ipykernel>=6.30.1",
+    "ipywidgets>=8.1.7",
+    "jupyter>=1.1.1",
+    "muon>=0.1.7",
+    "notebook>=7.1.3",
+    "scanpy>=1.11.4",
+    "scipy>=1.16.2",
+    "seaborn>=0.13.2",
+    "torch>=2.8.0",
+    "tqdm>=4.66.5",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu129"
+url = "https://download.pytorch.org/whl/cu129"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple/"

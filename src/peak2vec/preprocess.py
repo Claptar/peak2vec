@@ -38,6 +38,7 @@ def add_peak_coordinates(
     chrom_col: str = "Chromosome",
     start_col: str = "Start",
     end_col: str = "End",
+    center_col: str = "Center",
     source: str = "var_names",
     peak_name_col: Optional[str] = None,
     overwrite: bool = False,
@@ -54,7 +55,12 @@ def add_peak_coordinates(
         - "column": parse `adata.var[peak_name_col]`
     """
     have_all = all(c in adata.var.columns for c in (chrom_col, start_col, end_col))
-    if have_all and not overwrite:
+    if have_all and not overwrite and center_col not in adata.var.columns:
+        adata.var[center_col] = (
+            (adata.var[start_col].values + adata.var[end_col].values) // 2
+        ).astype(np.int64)
+        return
+    elif have_all and not overwrite:
         return
 
     if source == "column":
@@ -95,6 +101,9 @@ def add_peak_coordinates(
     adata.var[chrom_col] = np.asarray(chroms, dtype=object)
     adata.var[start_col] = np.asarray(starts, dtype=np.int64)
     adata.var[end_col] = np.asarray(ends, dtype=np.int64)
+    adata.var[center_col] = (
+        (adata.var[start_col].values + adata.var[end_col].values) // 2
+    ).astype(np.int64)
 
 
 def get_sampling_distributions(

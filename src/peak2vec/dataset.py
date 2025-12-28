@@ -59,7 +59,7 @@ class PeakDataset(IterableDataset[Tuple[int, int, torch.Tensor]]):
         )
 
         # Subsampling distribution
-        self.keep_distribution = torch.from_numpy(keep_distribution)
+        self.keep_distribution = keep_distribution
 
         # Negative sampling distribution (per chromosome)
         self.by_chr: Dict[str, np.ndarray] = {}
@@ -67,7 +67,7 @@ class PeakDataset(IterableDataset[Tuple[int, int, torch.Tensor]]):
         for u in np.unique(self.chr):
             idxs = np.where(self.chr == u)[0]
             self.by_chr[u] = idxs
-            f = neg_distribution[idxs].numpy()
+            f = neg_distribution[idxs]
             self.neg_cat_chr[u] = torch.distributions.categorical.Categorical(
                 probs=torch.from_numpy(f / (f.sum() + 1e-12)).float()
             )
@@ -75,19 +75,17 @@ class PeakDataset(IterableDataset[Tuple[int, int, torch.Tensor]]):
         # Optional: debugging / stats
         self.counter = defaultdict(int)
 
-        def _open_cell_peaks(
-            self, cell_idx: int, rng: np.random.Generator
-        ) -> np.ndarray:
-            """
-            Get open peaks for a given cell, applying subsampling.
-            """
-            row = self.X.getrow(cell_idx)  # returns a 1×n sparse row (CSR-like)
-            peaks = row.indices
-            if peaks.size < 2:
-                return peaks
-            mask = rng.random(peaks.size) < self.keep_distribution[peaks]
-            peaks = peaks[mask] if mask.any() else peaks
+    def _open_cell_peaks(self, cell_idx: int, rng: np.random.Generator) -> np.ndarray:
+        """
+        Get open peaks for a given cell, applying subsampling.
+        """
+        row = self.X.getrow(cell_idx)  # returns a 1×n sparse row (CSR-like)
+        peaks = row.indices
+        if peaks.size < 2:
             return peaks
+        mask = rng.random(peaks.size) < self.keep_distribution[peaks]
+        peaks = peaks[mask] if mask.any() else peaks
+        return peaks
 
     def _sample_pair(
         self, peak_idx: int, open_peaks: np.ndarray, rng: np.random.Generator

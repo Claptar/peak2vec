@@ -1,27 +1,48 @@
 [project]
 name = "peak2vec"
 version = "0.1.0"
-description = "Add your description here"
+description = "peak2vec experiments for scATAC / Multiome"
 readme = "README.md"
-requires-python = "==3.12.10"
+requires-python = ">=3.10"
 dependencies = [
-    "igraph>=0.11.9",
-    "ipykernel>=6.30.1",
-    "ipywidgets>=8.1.7",
-    "jupyter>=1.1.1",
-    "muon>=0.1.7",
-    "notebook>=7.1.3",
-    "scanpy>=1.11.4",
-    "scipy>=1.16.2",
-    "seaborn>=0.13.2",
-    "torch>=2.8.0",
-    "tqdm>=4.66.5",
+  "anndata>=0.10",
+  "numpy>=1.24",
+  "scipy>=1.10",
+  "pandas>=2.0",
+  "pyyaml>=6.0",
+  "typer>=0.12",
+  "rich>=13.7",
+  "wandb>=0.19",
+  "torch>=2.9.1",
+  "scanpy>=1.11.5",
+  "muon>=0.1.7",
+  "jupyter>=1.1.1",
+  "ipywidgets>=8.1.8",
+  "torch>=2.9.1",
+  "igraph>=1.0.0",
 ]
 
-[[tool.uv.index]]
-name = "pytorch-cu129"
-url = "https://download.pytorch.org/whl/cu129"
+[project.scripts]
+peak2vec = "peak2vec.cli:app"
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/peak2vec"]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" }]
 
 [[tool.uv.index]]
-name = "pypi"
-url = "https://pypi.org/simple/"
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6",
+]

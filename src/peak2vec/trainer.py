@@ -201,8 +201,6 @@ def train(cfg: ExperimentConfig, *, verbose: bool = False) -> None:
         MofNCompleteColumn(),
         TextColumn("•"),
         TimeElapsedColumn(),
-        TextColumn("•"),
-        TimeRemainingColumn(show_speed=True),
         console=console,
     )
 

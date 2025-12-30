@@ -99,9 +99,6 @@ def train(
         cfg.adata_path = adata_h5ad
     if outdir is not None:
         cfg.outdir = outdir
-    else:
-        # Ensure we don't overwrite "outputs/run" repeatedly
-        cfg.outdir = Path("outputs") / f"run_{_timestamp()}"
 
     # Preprocessing
     cfg.preprocessing.chrom_col = (

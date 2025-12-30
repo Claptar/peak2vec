@@ -101,8 +101,8 @@ def train(cfg: ExperimentConfig, *, verbose: bool = False) -> None:
 
     # Prepare AnnData
     log.info(f"Loading and preparing AnnData: [bold]{cfg.adata_path}[/bold]")
-    adata = ad.read_h5ad(cfg.adata_path)
-    adata = prepare_adata(
+    adata = ad.read_h5ad(str(cfg.adata_path))
+    prepare_adata(
         adata,
         chrom_col=cfg.preprocessing.chrom_col,
         start_col=cfg.preprocessing.start_col,

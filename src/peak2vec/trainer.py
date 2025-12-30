@@ -8,6 +8,7 @@ from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
 import torch
+from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 import anndata as ad
@@ -26,6 +27,7 @@ from src.peak2vec.utils.seed import seed_everything
 
 
 try:
+    load_dotenv()
     import wandb  # type: ignore
 except Exception:  # pragma: no cover
     wandb = None  # type: ignore

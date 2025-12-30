@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import numpy as np
+import pandas as pd
 import scipy.sparse as sp
 from anndata import AnnData
 
@@ -139,10 +140,9 @@ def prepare_adata(
     chrom_col: str = "Chromosome",
     start_col: str = "Start",
     end_col: str = "End",
+    center_col: str = "Center",
     peak_name_source: str = "var_names",
     peak_name_col: Optional[str] = None,
-    subsample_t: float = 5e-7,
-    neg_power: float = 0.75,
     overwrite_coords: bool = False,
 ) -> None:
     """
@@ -157,7 +157,29 @@ def prepare_adata(
         chrom_col=chrom_col,
         start_col=start_col,
         end_col=end_col,
+        center_col=center_col,
         source=peak_name_source,
         peak_name_col=peak_name_col,
         overwrite=overwrite_coords,
     )
+
+
+def balanced_downsample(
+    df: pd.DataFrame,
+    col: str,
+    n_per_class: int,
+    random_state: int = 0,
+    shuffle: bool = True,
+) -> pd.DataFrame:
+    g = df.groupby(col, group_keys=False, observed=True)
+
+    # sample up to n_per_class per group (no replacement)
+    out = g.apply(
+        lambda x: x.sample(n=min(len(x), n_per_class), random_state=random_state),
+        include_groups=True,
+    )
+
+    if shuffle:
+        out = out.sample(frac=1, random_state=random_state)
+
+    return out.reset_index(drop=True)

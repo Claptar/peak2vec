@@ -2,9 +2,23 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Literal
+from typing import Any, Dict, Optional
 
 import yaml
+
+
+@dataclass
+class PreprocessingConfig:
+    """Preprocessing settings."""
+
+    chrom_col: str = "Chromosome"
+    start_col: str = "Start"
+    end_col: str = "End"
+    center_col: str = "Center"
+    source: str = "var_names"  # var_names|column
+    peak_name_col: Optional[str] = None
+    n_per_chromosome: Optional[int] = None  # For downsampling in W&B embeddings logging
+    overwrite: bool = False
 
 
 @dataclass
@@ -28,20 +42,18 @@ class TrainConfig:
     """Model + optimizer settings."""
 
     embedding_dim: int = 128
-    pos_weight: float = 1.0
-    sparse: bool = True
-    tie_weights: bool = False
     lr: float = 2e-3
     weight_decay: float = 0.0
     batch_size: int = 512
     epochs: int = 200
 
     seed: int = 4
-    device: Literal["auto", "cpu", "cuda", "mps"] = "auto"
+    device: str = "auto"  # auto|cpu|cuda|mps
     num_workers: int = 0
     pin_memory: bool = True
 
     # Logging / checkpoints
+    log_every_steps: int = 50
     checkpoint_every_epochs: int = 10
     save_embeddings_every_epochs: int = 10
 
@@ -64,17 +76,20 @@ class WandbConfig:
     group: Optional[str] = None
     name: Optional[str] = None
     tags: list[str] = field(default_factory=list)
-    resume: "bool | Literal['allow', 'never', 'must', 'auto'] | None" = 'allow'
-    mode: "Literal['online', 'offline', 'disabled', 'shared'] | None" = "online"
+    mode: str = "online"  # online|offline|disabled
+    save_table: bool = (
+        True  # Whether to save downsampled peak table for embedding logging
+    )
 
 
 @dataclass
 class ExperimentConfig:
     """Top-level experiment config."""
 
-    adata_path: Path = None
+    adata_path: Path = Path("data/pbmc10k_eda.h5ad")
     outdir: Path = Path("outputs/run")
 
+    preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
     sampling: SamplingConfig = field(default_factory=SamplingConfig)
     train: TrainConfig = field(default_factory=TrainConfig)
     wandb: WandbConfig = field(default_factory=WandbConfig)

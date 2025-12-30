@@ -1,0 +1,48 @@
+adata_path: data/pbmc10k_atac_filtered.h5ad
+outdir: data/pbmc10k_demo
+
+preprocessing:
+  chrom_col: Chromosome
+  start_col: Start
+  end_col: End
+  center_col: Center
+  source: var_names
+  peak_name_col: null
+  overwrite: false
+
+sampling:
+  samples_per_epoch: 20000
+  n_pairs: 20
+  n_negative: 20
+  trans_fraction: 0.2
+  cis_window: 500000
+  same_chr_negative_prob: 0.5
+  subsample_t: 5.0e-7
+  neg_power: 0.75
+
+train:
+  embedding_dim: 128
+  pos_weight: 1.0
+  sparse: true
+  tie_weights: true
+  lr: 0.002
+  weight_decay: 0.0
+  batch_size: 512
+  epochs: 10
+  seed: 4
+  device: auto
+  num_workers: 0
+  pin_memory: true
+  checkpoint_every_epochs: 2
+  save_embeddings_every_epochs: 2
+  grad_clip_norm: null
+
+wandb:
+  project: peak2vec
+  entity: claptar
+  group: null
+  name: final-test
+  tags: []
+  mode: online
+  save_table: true
+  n_per_chromosome: 200

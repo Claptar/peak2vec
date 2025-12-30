@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any, Dict, Optional, Literal
+
+import yaml
+
+
+@dataclass
+class SamplingConfig:
+    """How we sample positive pairs and negatives from the ATAC matrix."""
+
+    samples_per_epoch: int = 20_000
+    n_pairs: int = 20
+    n_negative: int = 20
+    trans_fraction: float = 0.2
+    cis_window: int = 500_000
+    same_chr_negative_prob: float = 0.5
+
+    # Distributions computed from peak frequency
+    subsample_t: float = 5e-7
+    neg_power: float = 0.75
+
+
+@dataclass
+class TrainConfig:
+    """Model + optimizer settings."""
+
+    embedding_dim: int = 128
+    pos_weight: float = 1.0
+    sparse: bool = True
+    tie_weights: bool = False
+    lr: float = 2e-3
+    weight_decay: float = 0.0
+    batch_size: int = 512
+    epochs: int = 200
+
+    seed: int = 4
+    device: Literal["auto", "cpu", "cuda", "mps"] = "auto"
+    num_workers: int = 0
+    pin_memory: bool = True
+
+    # Logging / checkpoints
+    checkpoint_every_epochs: int = 10
+    save_embeddings_every_epochs: int = 10
+
+    # Numerical stability / training
+    grad_clip_norm: Optional[float] = None
+
+
+@dataclass
+class WandbConfig:
+    """Weights & Biases settings.
+
+    Set `mode` to:
+      - "online" (default): logs to the server
+      - "offline": logs locally, sync later
+      - "disabled": turns W&B off
+    """
+
+    project: Optional[str] = None
+    entity: Optional[str] = None
+    group: Optional[str] = None
+    name: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    resume: "bool | Literal['allow', 'never', 'must', 'auto'] | None" = 'allow'
+    mode: "Literal['online', 'offline', 'disabled', 'shared'] | None" = "online"
+
+
+@dataclass
+class ExperimentConfig:
+    """Top-level experiment config."""
+
+    adata_path: Path = None
+    outdir: Path = Path("outputs/run")
+
+    sampling: SamplingConfig = field(default_factory=SamplingConfig)
+    train: TrainConfig = field(default_factory=TrainConfig)
+    wandb: WandbConfig = field(default_factory=WandbConfig)
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        # Make Paths YAML-friendly
+        d["adata_path"] = str(self.adata_path)
+        d["outdir"] = str(self.outdir)
+        return d
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any]) -> "ExperimentConfig":
+        # Merge with defaults to be resilient to missing keys
+        cfg = ExperimentConfig()
+        if "adata_path" in d:
+            cfg.adata_path = Path(d["adata_path"])
+        if "outdir" in d:
+            cfg.outdir = Path(d["outdir"])
+
+        if "sampling" in d:
+            cfg.sampling = SamplingConfig(**{**asdict(cfg.sampling), **d["sampling"]})
+        if "train" in d:
+            cfg.train = TrainConfig(**{**asdict(cfg.train), **d["train"]})
+        if "wandb" in d:
+            cfg.wandb = WandbConfig(**{**asdict(cfg.wandb), **d["wandb"]})
+
+        return cfg
+
+
+def load_config(path: Path) -> ExperimentConfig:
+    with path.open("r") as f:
+        d = yaml.safe_load(f) or {}
+    return ExperimentConfig.from_dict(d)
+
+
+def save_config(cfg: ExperimentConfig, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as f:
+        yaml.safe_dump(cfg.to_dict(), f, sort_keys=False)

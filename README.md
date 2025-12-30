@@ -1,50 +1,156 @@
-# Peak2Vec
+# peak2vec
 
-**Peak2Vec** is a PyTorch-based machine learning project for analyzing single-cell ATAC-seq data. The repository implements a word2vec-inspired embedding model specifically designed for chromatin accessibility peaks in single-cell genomics data.
+Peak2Vec: Learning peak embeddings from single-cell ATAC-seq data using Skip-gram with Negative Sampling.
 
-## Key Features
+## Install
 
-- **Deep learning embeddings** for chromatin accessibility peaks using PyTorch
-- **Single-cell ATAC-seq analysis** pipeline with scanpy and muon
-- **Skip-gram architecture** with negative sampling for learning peak representations
-- **Comprehensive EDA workflows** for quality control and visualization
-- **CUDA support** for accelerated training
+```bash
+uv sync
+```
 
-## Main Components
+## Quick Start
 
-- **Data Processing**: Uses PBMC 10k ATAC-seq dataset for demonstration
-- **Model Architecture**: Custom Peak2Vec neural network with embedding layers
-- **Analysis Pipeline**: Complete workflow from raw data to embeddings and visualization
-- **Jupyter Notebooks**: Interactive analysis in `notebooks/eda.ipynb` and `notebooks/peak2vec.ipynb`
+### Using a config file (recommended)
 
-## Dependencies
+```bash
+uv run peak2vec train --config configs/pbmc10k.yaml
+```
 
-- PyTorch (with CUDA support)
-- scanpy, muon (single-cell analysis)
-- scipy, numpy (numerical computing)
-- matplotlib, seaborn (visualization)
+### Using command-line arguments
 
-## Overview
+```bash
+uv run peak2vec train \
+  --adata data/pbmc10k_eda.h5ad \
+  --outdir outputs/my_run \
+  --epochs 200 \
+  --embedding-dim 128 \
+  --batch-size 512 \
+  --lr 0.002
+```
 
-The project demonstrates how to apply natural language processing techniques (word2vec) to genomics data, learning meaningful representations of chromatin accessibility patterns that can be used for downstream analysis like clustering and visualization.
+## Configuration
 
-## Getting Started
+### Config File
 
-### Prerequisites
+Create a YAML config file (see [configs/pbmc10k.yaml](configs/pbmc10k.yaml) for a complete example):
 
-- Python 3.12.10
-- uv package manager
+```yaml
+adata_path: data/pbmc10k_eda.h5ad
+outdir: outputs/pbmc10k_run
 
-### Installation
+preprocessing:
+  chrom_col: Chromosome
+  start_col: Start
+  end_col: End
+  center_col: Center
+  source: var_names  # or "column" to parse from peak_name_col
+  
+sampling:
+  samples_per_epoch: 20000
+  n_pairs: 20
+  n_negative: 20
+  trans_fraction: 0.2
+  cis_window: 500000
+  subsample_t: 5.0e-7
+  neg_power: 0.75
 
-1. Clone the repository
-2. Install dependencies with uv:
+train:
+  embedding_dim: 128
+  pos_weight: 1.0
+  sparse: true
+  tie_weights: true
+  lr: 0.002
+  weight_decay: 0.0
+  batch_size: 512
+  epochs: 200
+  device: auto  # auto|cpu|cuda|mps
 
-   ```bash
-   uv sync
-   ```
+wandb:
+  project: peak2vec
+  mode: disabled  # online|offline|disabled
+```
 
-### Usage
+### Command-line Arguments
 
-1. Start with the EDA notebook: `notebooks/eda.ipynb`
-2. Train the Peak2Vec model: `notebooks/peak2vec.ipynb`
+Any config parameter can be overridden via command-line flags:
+
+```bash
+# Preprocessing
+--chrom-col, --start-col, --end-col, --center-col
+--peak-source, --peak-name-col, --overwrite-coords
+
+# Sampling
+--samples-per-epoch, --n-pairs, --n-negative
+--trans-fraction, --cis-window, --same-chr-negative-prob
+--subsample-t, --neg-power
+
+# Training
+--embedding-dim, --pos-weight, --sparse, --tie-weights
+--lr, --weight-decay, --batch-size, --epochs, --seed
+--device, --num-workers, --pin-memory
+--checkpoint-every-epochs, --save-embeddings-every-epochs
+
+# Weights & Biases
+--wandb-project, --wandb-entity, --wandb-group, --wandb-name
+--wandb-mode, --wandb-n-per-chromosome, --wandb-save-table
+```
+
+## Weights & Biases Integration
+
+### Setup
+
+Set your API key:
+```bash
+export WANDB_API_KEY=your_key_here
+# or
+wandb login
+```
+
+### Online logging
+
+```bash
+uv run peak2vec train \
+  --config configs/pbmc10k.yaml \
+  --wandb-project peak2vec \
+  --wandb-entity your-entity \
+  --wandb-mode online
+```
+
+### Offline logging (for clusters without internet)
+
+```bash
+export WANDB_MODE=offline
+uv run peak2vec train \
+  --config configs/pbmc10k.yaml \
+  --wandb-project peak2vec \
+  --wandb-mode offline
+
+# Later, sync the run:
+wandb sync outputs/your_run/wandb/
+```
+
+## Output Structure
+
+```
+outputs/
+└── run_YYYYMMDD_HHMMSS/
+    ├── config.yaml                      # Resolved configuration
+    ├── checkpoints/
+    │   ├── checkpoint_epoch0010.pt
+    │   ├── checkpoint_epoch0020.pt
+    │   └── final_model.pt
+    └── wandb/                           # W&B logs (if enabled)
+```
+
+## Data Requirements
+
+Your AnnData object should have:
+- `.X` as a sparse CSC matrix (cells × peaks)
+- `.var` with peak coordinates:
+  - Option 1: Chromosome/Start/End columns
+  - Option 2: Peak names in `var_names` (e.g., `chr1:100-200` or `chr1_100_200`)
+
+The training script will automatically:
+- Parse peak coordinates if not present
+- Compute sampling distributions (`neg` and `keep`)
+- Prepare the data for training

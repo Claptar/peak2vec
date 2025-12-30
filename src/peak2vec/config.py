@@ -17,7 +17,6 @@ class PreprocessingConfig:
     center_col: str = "Center"
     source: str = "var_names"  # var_names|column
     peak_name_col: Optional[str] = None
-    n_per_chromosome: Optional[int] = None  # For downsampling in W&B embeddings logging
     overwrite: bool = False
 
 
@@ -42,6 +41,10 @@ class TrainConfig:
     """Model + optimizer settings."""
 
     embedding_dim: int = 128
+    pos_weight: float = 1.0
+    sparse: bool = True
+    tie_weights: bool = True
+
     lr: float = 2e-3
     weight_decay: float = 0.0
     batch_size: int = 512
@@ -53,7 +56,6 @@ class TrainConfig:
     pin_memory: bool = True
 
     # Logging / checkpoints
-    log_every_steps: int = 50
     checkpoint_every_epochs: int = 10
     save_embeddings_every_epochs: int = 10
 
@@ -80,6 +82,7 @@ class WandbConfig:
     save_table: bool = (
         True  # Whether to save downsampled peak table for embedding logging
     )
+    n_per_chromosome: int = 200  # Number of peaks to log per chromosome
 
 
 @dataclass
@@ -110,6 +113,10 @@ class ExperimentConfig:
         if "outdir" in d:
             cfg.outdir = Path(d["outdir"])
 
+        if "preprocessing" in d:
+            cfg.preprocessing = PreprocessingConfig(
+                **{**asdict(cfg.preprocessing), **d["preprocessing"]}
+            )
         if "sampling" in d:
             cfg.sampling = SamplingConfig(**{**asdict(cfg.sampling), **d["sampling"]})
         if "train" in d:

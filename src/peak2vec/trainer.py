@@ -14,7 +14,15 @@ import pandas as pd
 import anndata as ad
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.progress import track
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    BarColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+    MofNCompleteColumn,
+)
 from torch.utils.data import DataLoader
 
 from peak2vec.dataset import PeakDataset, peak2vec_collate
@@ -70,6 +78,7 @@ def _init_wandb(cfg: ExperimentConfig) -> Optional[wandb.sdk.wandb_run.Run]:
         tags=cfg.wandb.tags or None,
         config=cfg.to_dict(),
         mode=cfg.wandb.mode,
+        resume="allow",
     )
     # Metric conventions
     # try:
@@ -184,95 +193,126 @@ def train(cfg: ExperimentConfig, *, verbose: bool = False) -> None:
 
     global_step = 0
 
-    for epoch in track(range(1, cfg.train.epochs + 1), description="Training epochs"):
-        model.train()
+    # Setup progress bar
+    progress = Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]Epoch {task.fields[epoch]}/{task.fields[total_epochs]}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
+        TextColumn("•"),
+        TimeRemainingColumn(show_speed=True),
+        console=console,
+    )
 
-        running_loss = 0.0
-        running_pos_loss = 0.0
-        running_neg_loss = 0.0
-        running_pos_score = 0.0
-        running_neg_score = 0.0
-        epoch_start_time = time.time()
+    with progress:
+        task = progress.add_task(
+            "Training",
+            total=cfg.train.epochs,
+            epoch=0,
+            total_epochs=cfg.train.epochs,
+        )
 
-        for step, (peaks, peak_pairs, negatives) in enumerate(loader, 1):
-            peaks = peaks.to(device, non_blocking=True)
-            peak_pairs = peak_pairs.to(device, non_blocking=True)
-            negatives = negatives.to(device, non_blocking=True)
+        for epoch in range(1, cfg.train.epochs + 1):
+            model.train()
 
-            optimizer.zero_grad(set_to_none=True)
-            batch_loss, stats = model(peaks, peak_pairs, negatives)
-            batch_loss.backward()
+            running_loss = 0.0
+            running_pos_loss = 0.0
+            running_neg_loss = 0.0
+            running_pos_score = 0.0
+            running_neg_score = 0.0
+            epoch_start_time = time.time()
 
-            optimizer.step()
+            for step, (peaks, peak_pairs, negatives) in enumerate(loader, 1):
+                peaks = peaks.to(device, non_blocking=True)
+                peak_pairs = peak_pairs.to(device, non_blocking=True)
+                negatives = negatives.to(device, non_blocking=True)
 
-            running_loss += float(batch_loss.detach().cpu())
-            running_pos_loss += float(stats["pos_loss_mean"].cpu())
-            running_neg_loss += float(stats["neg_loss_mean"].cpu())
-            running_pos_score += float(stats["pos_score_mean"].cpu())
-            running_neg_score += float(stats["neg_score_mean"].cpu())
+                optimizer.zero_grad(set_to_none=True)
+                batch_loss, stats = model(peaks, peak_pairs, negatives)
+                batch_loss.backward()
 
-            # print(f"Epoch {epoch} | Step {step:03d} | Loss: {running / step:.4f} | Pos Loss: {stats['pos_loss_mean']:.4f} | Neg Loss: {stats['neg_loss_mean']:.4f} | Pos Score: {stats['pos_score_mean']:.4f} | Neg Score: {stats['neg_score_mean']:.4f}")
+                optimizer.step()
 
-        epoch_time = time.time() - epoch_start_time
-        # Log epoch stats
-        if run is not None:
-            run.log(
-                {
-                    "epoch": epoch,
-                    "loss": running_loss / step,
-                    "pos_loss": running_pos_loss / step,
-                    "neg_loss": running_neg_loss / step,
-                    "pos_score": running_pos_score / step,
-                    "neg_score": running_neg_score / step,
-                    "epoch_time_sec": epoch_time,
-                    "samples_per_second": cfg.sampling.samples_per_epoch / epoch_time,
-                }
-            )
+                running_loss += float(batch_loss.detach().cpu())
+                running_pos_loss += float(stats["pos_loss_mean"].cpu())
+                running_neg_loss += float(stats["neg_loss_mean"].cpu())
+                running_pos_score += float(stats["pos_score_mean"].cpu())
+                running_neg_score += float(stats["neg_score_mean"].cpu())
 
-        # Checkpointing
-        if epoch % cfg.train.checkpoint_every_epochs == 0:
-            checkpoint_path = outdir / "checkpoints" / f"checkpoint_epoch{epoch:04d}.pt"
-            log.info(f"Saving checkpoint to {checkpoint_path}")
-            torch.save(
-                {
-                    "epoch": epoch,
-                    "model_state_dict": model.state_dict(),
-                    "optimizer_state_dict": optimizer.state_dict(),
-                },
-                checkpoint_path,
-            )
+                # print(f"Epoch {epoch} | Step {step:03d} | Loss: {running / step:.4f} | Pos Loss: {stats['pos_loss_mean']:.4f} | Neg Loss: {stats['neg_loss_mean']:.4f} | Pos Score: {stats['pos_score_mean']:.4f} | Neg Score: {stats['neg_score_mean']:.4f}")
 
+            epoch_time = time.time() - epoch_start_time
+
+            # Update progress
+            progress.update(task, advance=1, epoch=epoch)
+
+            # Log epoch stats
             if run is not None:
-                artifact = wandb.Artifact(
-                    f"{run.name}_checkpoint_epoch{epoch:04d}", type="model"
+                run.log(
+                    {
+                        "epoch": epoch,
+                        "loss": running_loss / step,
+                        "pos_loss": running_pos_loss / step,
+                        "neg_loss": running_neg_loss / step,
+                        "pos_score": running_pos_score / step,
+                        "neg_score": running_neg_score / step,
+                        "epoch_time_sec": epoch_time,
+                        "samples_per_second": cfg.sampling.samples_per_epoch
+                        / epoch_time,
+                    }
                 )
-                artifact.add_file(str(checkpoint_path))
-                run.log_artifact(artifact)
 
-        # Save table of embeddings to W&B
-        if (
-            epoch % cfg.train.save_embeddings_every_epochs == 0
-            and cfg.wandb.save_table
-            and run is not None
-        ):
-            embedding_norm = model.get_peak_embeddings(normalize=True).numpy()
-            emb_df = pd.DataFrame(
-                embedding_norm[downsampled_idx],
-                columns=[f"dim_{i}" for i in range(embedding_norm.shape[1])],
-            )
-            emb_df["chromosome"] = downsampled_chr
-            table = wandb.Table(dataframe=emb_df)
+            # Checkpointing
+            if epoch % cfg.train.checkpoint_every_epochs == 0:
+                checkpoint_path = (
+                    outdir / "checkpoints" / f"checkpoint_epoch{epoch:04d}.pt"
+                )
+                log.info(f"Saving checkpoint to {checkpoint_path}")
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                    },
+                    checkpoint_path,
+                )
 
-            try:
-                run.log({"embedding": table})
-            except FileNotFoundError as e:
-                wandb.termwarn(
-                    f"Skipping W&B table log at epoch {epoch} (temp dir issue): {e}"
-                )
-            except Exception as e:
-                wandb.termwarn(
-                    f"Skipping W&B table log at epoch {epoch} (unexpected): {e}"
-                )
+                if run is not None:
+                    artifact = wandb.Artifact(
+                        f"{run.name}_checkpoint_epoch{epoch:04d}", type="model"
+                    )
+                    artifact.add_file(str(checkpoint_path))
+                    run.log_artifact(artifact)
+
+            # Save table of embeddings to W&B
+            if (
+                epoch % cfg.train.save_embeddings_every_epochs == 0
+                and cfg.wandb.save_table
+                and run is not None
+            ):
+                for which in ["in", "out"]:
+                    embedding_norm = model.get_peak_embeddings(
+                        normalize=True, which=which
+                    ).numpy()
+                    emb_df = pd.DataFrame(
+                        embedding_norm[downsampled_idx],
+                        columns=[f"dim_{i}" for i in range(embedding_norm.shape[1])],
+                    )
+                    emb_df["chromosome"] = downsampled_chr
+                    table = wandb.Table(dataframe=emb_df)
+
+                    try:
+                        run.log({f"embedding_{which}": table})
+                    except FileNotFoundError as e:
+                        wandb.termwarn(
+                            f"Skipping W&B table log at epoch {epoch} (temp dir issue): {e}"
+                        )
+                    except Exception as e:
+                        wandb.termwarn(
+                            f"Skipping W&B table log at epoch {epoch} (unexpected): {e}"
+                        )
 
     # Save final model
     final_checkpoint = outdir / "checkpoints" / "final_model.pt"

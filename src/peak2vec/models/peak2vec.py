@@ -28,7 +28,9 @@ class Peak2Vec(nn.Module):
         self.reset_params()
 
     def reset_params(self):
-        nn.init.uniform_(self.embedding.weight, -0.5 / self.dim, 0.5 / self.dim)
+        nn.init.uniform_(self.in_embedding.weight, -0.5 / self.dim, 0.5 / self.dim)
+        if not self.tie_weights:
+            nn.init.uniform_(self.out_embedding.weight, -0.5 / self.dim, 0.5 / self.dim)
 
     def forward(
         self,

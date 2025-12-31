@@ -11,6 +11,7 @@ from rich.traceback import install as install_rich_traceback
 
 from peak2vec.config import ExperimentConfig, load_config, save_config
 from peak2vec.trainer import train as run_train
+from peak2vec.visualize import visualize_embeddings
 
 app = typer.Typer(
     add_completion=False,
@@ -216,6 +217,59 @@ def train(
 
     run_train(cfg, verbose=verbose)
     console.print(f"✅ Done. Outputs written to [bold]{cfg.outdir}[/bold]")
+
+
+@app.command()
+def visualize(
+    checkpoint: Path = typer.Argument(
+        ..., exists=True, dir_okay=False, help="Model checkpoint file"
+    ),
+    metadata: Path = typer.Argument(
+        ..., exists=True, dir_okay=False, help="Peak metadata CSV file"
+    ),
+    outdir: Optional[Path] = typer.Option(
+        None, "--outdir", dir_okay=True, help="Output directory for visualizations"
+    ),
+    n_pcs: Optional[int] = typer.Option(
+        None, "--n-pcs", help="Number of principal components for PCA"
+    ),
+    n_neighbors: int = typer.Option(
+        15, "--n-neighbors", help="Number of neighbors for UMAP"
+    ),
+    metric: str = typer.Option(
+        "cosine", "--metric", help="Distance metric for UMAP (e.g., euclidean, cosine)"
+    ),
+    random_state: int = typer.Option(
+        4, "--random-state", help="Random state for UMAP reproducibility"
+    ),
+    which: str = typer.Option(
+        "in", "--which", help="Which embeddings to visualize: in|out"
+    ),
+) -> None:
+    """
+    Visualize peak embeddings from a trained model checkpoint.
+    """
+    install_rich_traceback()
+
+    # Determine output directory
+    if outdir is None:
+        outdir = checkpoint.parent.parent / "visualizations"
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    console.print(f"🎨 Creating visualizations in [bold]{outdir}[/bold]")
+
+    visualize_embeddings(
+        checkpoint_path=checkpoint,
+        metadata_path=metadata,
+        outdir=outdir,
+        n_pcs=n_pcs,
+        n_neighbors=n_neighbors,
+        metric=metric,
+        random_state=random_state,
+        which=which,
+    )
+
+    console.print(f"✅ Visualizations saved to [bold]{outdir}[/bold]")
 
 
 if __name__ == "__main__":

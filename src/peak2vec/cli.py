@@ -12,6 +12,7 @@ from rich.traceback import install as install_rich_traceback
 from peak2vec.config import ExperimentConfig, load_config, save_config
 from peak2vec.trainer import train as run_train
 from peak2vec.visualize import visualize_embeddings
+from peak2vec.preprocessing import preprocess_atac
 
 app = typer.Typer(
     add_completion=False,
@@ -274,6 +275,116 @@ def visualize(
     )
 
     console.print(f"✅ Visualizations saved to [bold]{outdir}[/bold]")
+
+
+@app.command()
+def preprocess(
+    input_h5ad: Path = typer.Argument(
+        ..., exists=True, dir_okay=False, help="Input AnnData (.h5ad) file"
+    ),
+    output_h5ad: Optional[Path] = typer.Argument(
+        None,
+        dir_okay=False,
+        help="Output AnnData (.h5ad) file (not required with --qc-only)",
+    ),
+    min_cells_per_peak: Optional[int] = typer.Option(
+        70, "--min-cells-per-peak", help="Minimum cells per peak"
+    ),
+    max_cells_per_peak: Optional[int] = typer.Option(
+        9000, "--max-cells-per-peak", help="Maximum cells per peak"
+    ),
+    min_peaks_per_cell: Optional[int] = typer.Option(
+        500, "--min-peaks-per-cell", help="Minimum peaks per cell"
+    ),
+    max_peaks_per_cell: Optional[int] = typer.Option(
+        25000, "--max-peaks-per-cell", help="Maximum peaks per cell"
+    ),
+    max_nucleosome_signal: Optional[float] = typer.Option(
+        None, "--max-nucleosome-signal", help="Maximum nucleosome signal (if available)"
+    ),
+    chrom_col: str = typer.Option(
+        "Chromosome", "--chrom-col", help="Column name for chromosome"
+    ),
+    start_col: str = typer.Option("Start", "--start-col", help="Column name for start"),
+    end_col: str = typer.Option("End", "--end-col", help="Column name for end"),
+    center_col: str = typer.Option(
+        "Center", "--center-col", help="Column name for center"
+    ),
+    peak_source: str = typer.Option(
+        "var_names", "--peak-source", help="Source of peak names: var_names|column"
+    ),
+    peak_name_col: Optional[str] = typer.Option(
+        None,
+        "--peak-name-col",
+        help="Column name containing peak names (if source=column)",
+    ),
+    overwrite_coords: bool = typer.Option(
+        False, "--overwrite-coords", help="Overwrite existing coordinates"
+    ),
+    plot_qc: bool = typer.Option(
+        True, "--plot-qc/--no-plot-qc", help="Generate QC plots"
+    ),
+    qc_only: bool = typer.Option(
+        False, "--qc-only", help="Only generate QC plots without filtering"
+    ),
+    qc_var_columns: Optional[str] = typer.Option(
+        None,
+        "--qc-var-columns",
+        help="Comma-separated list of peak columns to plot (max 2)",
+    ),
+    qc_obs_columns: Optional[str] = typer.Option(
+        None,
+        "--qc-obs-columns",
+        help="Comma-separated list of cell columns to plot (max 6)",
+    ),
+    qc_plots_dir: Optional[Path] = typer.Option(
+        None,
+        "--qc-plots-dir",
+        help="Directory to save QC plots (default: same as output with 'qc_plots' subdirectory)",
+    ),
+) -> None:
+    """
+    Preprocess ATAC-seq data: calculate QC metrics, filter cells/peaks, and prepare for training.
+    """
+    install_rich_traceback()
+
+    # Validate output_h5ad requirement
+    if not qc_only and output_h5ad is None:
+        console.print(
+            "[red]Error: output_h5ad is required unless --qc-only is specified[/red]"
+        )
+        raise typer.Exit(1)
+
+    console.print(f"📊 Preprocessing [bold]{input_h5ad}[/bold]")
+
+    # Parse QC columns
+    parsed_var_cols = qc_var_columns.split(",") if qc_var_columns else None
+    parsed_obs_cols = qc_obs_columns.split(",") if qc_obs_columns else None
+
+    preprocess_atac(
+        input_h5ad=input_h5ad,
+        output_h5ad=output_h5ad,
+        min_cells_per_peak=min_cells_per_peak,
+        max_cells_per_peak=max_cells_per_peak,
+        min_peaks_per_cell=min_peaks_per_cell,
+        max_peaks_per_cell=max_peaks_per_cell,
+        max_nucleosome_signal=max_nucleosome_signal,
+        chrom_col=chrom_col,
+        start_col=start_col,
+        end_col=end_col,
+        center_col=center_col,
+        peak_source=peak_source,
+        peak_name_col=peak_name_col,
+        overwrite_coords=overwrite_coords,
+        plot_qc=plot_qc,
+        qc_only=qc_only,
+        qc_var_columns=parsed_var_cols,
+        qc_obs_columns=parsed_obs_cols,
+        qc_plots_dir=qc_plots_dir,
+    )
+
+    if not qc_only and output_h5ad:
+        console.print(f"💾 Saved to [bold]{output_h5ad}[/bold]")
 
 
 if __name__ == "__main__":

@@ -230,6 +230,9 @@ def visualize(
     outdir: Optional[Path] = typer.Option(
         None, "--outdir", dir_okay=True, help="Output directory for visualizations"
     ),
+    index_col: Optional[str] = typer.Option(
+        None, "--index-col", help="Column to use as index when loading metadata CSV"
+    ),
     n_pcs: Optional[int] = typer.Option(
         None, "--n-pcs", help="Number of principal components for PCA"
     ),
@@ -262,6 +265,7 @@ def visualize(
         checkpoint_path=checkpoint,
         metadata_path=metadata,
         outdir=outdir,
+        index_col=index_col,
         n_pcs=n_pcs,
         n_neighbors=n_neighbors,
         metric=metric,

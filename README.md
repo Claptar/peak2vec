@@ -64,10 +64,16 @@ train:
   batch_size: 512
   epochs: 200
   device: auto  # auto|cpu|cuda|mps
+  num_workers: 4  # Parallel data loading workers
 
 wandb:
   project: peak2vec
   mode: disabled  # online|offline|disabled
+  visualize_embeddings: true  # Generate PCA/UMAP plots at end
+  viz_metadata_cols:  # Columns from adata.var for coloring
+    - Chromosome
+  viz_n_neighbors: 15  # UMAP neighbors
+  viz_metric: cosine  # Distance metric for UMAP
 ```
 
 ### Command-line Arguments
@@ -93,6 +99,7 @@ Any config parameter can be overridden via command-line flags:
 # Weights & Biases
 --wandb-project, --wandb-entity, --wandb-group, --wandb-name
 --wandb-mode, --wandb-n-per-chromosome, --wandb-save-table
+--wandb-visualize-embeddings, --wandb-viz-metadata-cols
 ```
 
 ## Weights & Biases Integration
@@ -139,18 +146,101 @@ outputs/
     │   ├── checkpoint_epoch0010.pt
     │   ├── checkpoint_epoch0020.pt
     │   └── final_model.pt
+    ├── visualizations/                  # Final embeddings (if enabled)
+    │   ├── peak_embeddings_in.h5ad     # AnnData with PCA/UMAP
+    │   ├── peak_embeddings_in_pca.png
+    │   ├── peak_embeddings_in_umap.png
+    │   ├── peak_embeddings_out.h5ad    # (if tie_weights=False)
+    │   ├── peak_embeddings_out_pca.png
+    │   └── peak_embeddings_out_umap.png
     └── wandb/                           # W&B logs (if enabled)
 ```
 
 ## Data Requirements
 
 Your AnnData object should have:
-- `.X` as a sparse CSC matrix (cells × peaks)
+- `.X` as a sparse matrix (cells × peaks) - will be converted to CSR format for optimal performance
 - `.var` with peak coordinates:
   - Option 1: Chromosome/Start/End columns
   - Option 2: Peak names in `var_names` (e.g., `chr1:100-200` or `chr1_100_200`)
 
 The training script will automatically:
+- Convert sparse matrix to CSR format for fast row access
 - Parse peak coordinates if not present
 - Compute sampling distributions (`neg` and `keep`)
 - Prepare the data for training
+
+## Embedding Visualization
+
+Peak2Vec automatically generates embedding visualizations at the end of training:
+
+- **PCA and UMAP** plots colored by metadata columns
+- **Input and output embeddings** (if `tie_weights=False`)
+- **Uploaded to W&B** automatically (if enabled)
+- **Saved locally** as `.h5ad` files for further analysis
+
+### Customizing Visualizations
+
+```yaml
+wandb:
+  visualize_embeddings: true
+  viz_metadata_cols:
+    - Chromosome
+    - peak_type        # Add any column from adata.var
+    - gene_annotation
+  viz_n_neighbors: 15  # Adjust for local vs global structure
+  viz_metric: cosine   # cosine, euclidean, correlation, etc.
+```
+
+### Standalone Visualization
+
+Generate visualizations from a saved checkpoint:
+
+```bash
+uv run peak2vec visualize \
+  checkpoints/final_model.pt \
+  metadata.csv \
+  --outdir visualizations/ \
+  --which in \
+  --n-neighbors 15
+```
+
+See [docs/VISUALIZATION.md](docs/VISUALIZATION.md) for detailed documentation.
+
+## Performance Optimization
+
+For large datasets, optimize training speed:
+
+```bash
+# Increase data loading workers
+uv run peak2vec train --config config.yaml --num-workers 8
+
+# Enable pin_memory for faster GPU transfer
+uv run peak2vec train --config config.yaml --pin-memory
+
+# Larger batch sizes (if GPU memory allows)
+uv run peak2vec train --config config.yaml --batch-size 1024
+```
+
+**Profile your dataset:**
+```bash
+python scripts/profile_dataset.py data/your_data.h5ad
+```
+
+See [OPTIMIZATION_GUIDE.md](OPTIMIZATION_GUIDE.md) for comprehensive performance tuning.
+
+## Additional Commands
+
+### Preprocessing
+
+Preprocess ATAC-seq data with QC filtering:
+
+```bash
+uv run peak2vec preprocess \
+  input.h5ad \
+  output_filtered.h5ad \
+  --min-cells-per-peak 70 \
+  --max-cells-per-peak 9000 \
+  --min-peaks-per-cell 500 \
+  --plot-qc
+```

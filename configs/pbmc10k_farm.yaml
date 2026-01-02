@@ -1,5 +1,5 @@
-adata_path: "D:/peak2vec/pbmc10k_atac_filtered.h5ad"
-outdir: "D:/peak2vec/pbmc10k_demo"
+adata_path: "/lustre/scratch124/cellgen/cellgeni/aljes/peak2vec/data/pbmc10k.h5ad"
+outdir: "/lustre/scratch124/cellgen/cellgeni/aljes/output"
 
 preprocessing:
   chrom_col: Chromosome
@@ -14,7 +14,7 @@ sampling:
   samples_per_epoch: 20000
   n_pairs: 20
   n_negative: 20
-  trans_fraction: 0.2
+  trans_fraction: 0.3
   cis_window: 500000
   same_chr_negative_prob: 0.5
   subsample_t: 5.0e-7
@@ -22,12 +22,12 @@ sampling:
 
 train:
   embedding_dim: 128
-  pos_weight: 4.0
+  pos_weight: 1.0
   sparse: false
-  tie_weights: false
+  tie_weights: true
   lr: 0.004
   weight_decay: 0.0
-  batch_size: 512
+  batch_size: 1024
   epochs: 100
   seed: 4
   device: auto
@@ -41,7 +41,7 @@ wandb:
   project: peak2vec
   entity: claptar
   group: null
-  name: final-test
+  name: farm-test-cpu
   tags: []
   mode: online
   save_table: true

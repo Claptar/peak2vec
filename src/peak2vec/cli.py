@@ -89,6 +89,14 @@ def train(
         None, "--wandb-n-per-chromosome"
     ),
     wandb_save_table: Optional[bool] = typer.Option(None, "--wandb-save-table"),
+    wandb_visualize_embeddings: Optional[bool] = typer.Option(
+        None, "--wandb-visualize-embeddings"
+    ),
+    wandb_viz_metadata_cols: Optional[str] = typer.Option(
+        None,
+        "--wandb-viz-metadata-cols",
+        help="Comma-separated list of adata.var columns for visualization",
+    ),
     verbose: bool = typer.Option(False, "--verbose", help="Verbose logging"),
 ):
     """Train peak2vec and optionally log to Weights & Biases."""
@@ -209,6 +217,13 @@ def train(
     cfg.wandb.save_table = (
         wandb_save_table if wandb_save_table is not None else cfg.wandb.save_table
     )
+    cfg.wandb.visualize_embeddings = (
+        wandb_visualize_embeddings
+        if wandb_visualize_embeddings is not None
+        else cfg.wandb.visualize_embeddings
+    )
+    if wandb_viz_metadata_cols is not None:
+        cfg.wandb.viz_metadata_cols = wandb_viz_metadata_cols.split(",")
 
     # Persist the resolved config into the run dir
     cfg.outdir.mkdir(parents=True, exist_ok=True)

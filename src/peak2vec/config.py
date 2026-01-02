@@ -84,6 +84,14 @@ class WandbConfig:
     )
     n_per_chromosome: int = 200  # Number of peaks to log per chromosome
 
+    # Final embedding visualization
+    visualize_embeddings: bool = True  # Whether to generate and upload final embeddings
+    viz_metadata_cols: list[str] = field(
+        default_factory=lambda: ["Chromosome"]
+    )  # Columns from adata.var to use for coloring
+    viz_n_neighbors: int = 15  # Number of neighbors for UMAP
+    viz_metric: str = "cosine"  # Distance metric for UMAP
+
 
 @dataclass
 class ExperimentConfig:

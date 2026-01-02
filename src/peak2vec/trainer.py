@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 import anndata as ad
+import scanpy as sc
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import (
@@ -33,6 +34,7 @@ from peak2vec.preprocess import (
     balanced_downsample,
 )
 from peak2vec.config import ExperimentConfig
+from peak2vec.visualize import visualize_embeddings
 from peak2vec.utils.device import resolve_device
 from peak2vec.utils.io import ensure_dir, save_json, save_npy, save_yaml
 from peak2vec.utils.seed import seed_everything
@@ -323,6 +325,73 @@ def train(cfg: ExperimentConfig, *, verbose: bool = False) -> None:
         },
         final_checkpoint,
     )
+
+    # Generate final embedding visualizations
+    if cfg.wandb.visualize_embeddings:
+        log.info("Generating final embedding visualizations")
+
+        # Extract metadata columns
+        metadata_cols = cfg.wandb.viz_metadata_cols
+        available_cols = [col for col in metadata_cols if col in adata.var.columns]
+        if not available_cols:
+            log.warning(
+                f"None of the specified metadata columns {metadata_cols} found in adata.var. Using Chromosome if available."
+            )
+            available_cols = ["Chromosome"] if "Chromosome" in adata.var.columns else []
+
+        if not available_cols:
+            log.warning("No metadata columns available for visualization. Skipping.")
+        else:
+            metadata_df = adata.var[available_cols].copy()
+            viz_dir = outdir / "visualizations"
+            viz_dir.mkdir(exist_ok=True, parents=True)
+
+            # Determine which embeddings to generate
+            embeddings_to_viz = ["in"]
+            if not cfg.train.tie_weights:
+                embeddings_to_viz.append("out")
+
+            for which in embeddings_to_viz:
+                try:
+                    log.info(f"Processing {which} embeddings")
+
+                    # Use the visualize module function
+                    h5ad_path = visualize_embeddings(
+                        checkpoint_path=model,
+                        outdir=viz_dir,
+                        metadata=metadata_df,
+                        n_pcs=min(50, cfg.train.embedding_dim),
+                        n_neighbors=cfg.wandb.viz_n_neighbors,
+                        metric=cfg.wandb.viz_metric,
+                        random_state=cfg.train.seed,
+                        which=which,
+                        show_progress=False,
+                        log=log,
+                    )
+
+                    # Upload to W&B if run exists
+                    if run is not None:
+                        import matplotlib.pyplot as plt
+
+                        pca_path = viz_dir / f"peak_embeddings_{which}_pca.png"
+                        umap_path = viz_dir / f"peak_embeddings_{which}_umap.png"
+
+                        if pca_path.exists() and umap_path.exists():
+                            run.log(
+                                {
+                                    f"final_embeddings/{which}_pca": wandb.Image(
+                                        str(pca_path)
+                                    ),
+                                    f"final_embeddings/{which}_umap": wandb.Image(
+                                        str(umap_path)
+                                    ),
+                                }
+                            )
+                            log.info(f"Uploaded {which} embedding plots to W&B")
+                except Exception as e:
+                    log.warning(
+                        f"Failed to generate/upload {which} embedding plots: {e}"
+                    )
 
     if run is not None:
         wandb.finish()

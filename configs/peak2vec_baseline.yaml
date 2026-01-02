@@ -41,7 +41,7 @@ wandb:
   project: peak2vec
   entity: claptar
   group: null
-  name: final-test
+  name: peak2vec-baseline
   tags: []
   mode: online
   save_table: true

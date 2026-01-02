@@ -13,13 +13,13 @@ _PEAK_RE_COLON = re.compile(r"^(?P<chr>[^:]+):(?P<start>\d+)-(?P<end>\d+)$")
 _PEAK_RE_UNDERSCORE = re.compile(r"^(?P<chr>[^_]+)_(?P<start>\d+)_(?P<end>\d+)$")
 
 
-def ensure_csc(adata: AnnData) -> None:
-    """Ensure adata.X is CSC (required by PeakDataset for fast row slicing)."""
-    if sp.issparse(adata.X) and not sp.isspmatrix_csc(adata.X):
-        adata.X = adata.X.tocsc()
+def ensure_csr(adata: AnnData) -> None:
+    """Ensure adata.X is CSR (required by PeakDataset for fast row slicing)."""
+    if sp.issparse(adata.X) and not sp.isspmatrix_csr(adata.X):
+        adata.X = adata.X.tocsr()
     elif not sp.issparse(adata.X):
         # Dense is supported but not recommended at ATAC scale
-        adata.X = sp.csc_matrix(adata.X)
+        adata.X = sp.csr_matrix(adata.X)
 
 
 def _parse_peak_name(name: str) -> Optional[Tuple[str, int, int]]:
@@ -151,7 +151,7 @@ def prepare_adata(
      - Adding peak coordinates to adata.var if missing.
      - Parsing peak names from var_names or a specified column.
     """
-    ensure_csc(adata)
+    ensure_csr(adata)
     add_peak_coordinates(
         adata,
         chrom_col=chrom_col,

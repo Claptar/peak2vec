@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, Iterator, Tuple, List
+from typing import Dict, Iterator, Tuple, List, Union
 
 import numpy as np
 import torch
 from anndata import AnnData
-from scipy.sparse import csc_matrix
+from scipy.sparse import csc_matrix, csr_matrix, issparse
 from torch.utils.data import DataLoader, IterableDataset, get_worker_info
 
 
 class PeakDataset(IterableDataset[Tuple[int, int, torch.Tensor]]):
     """Iterable dataset yielding (anchor_peak, context_peak, negatives).
 
-    Assumes `adata.X` is CSR with shape (n_cells, n_peaks) and `adata.var` contains:
+    Expects `X` as sparse matrix with shape (n_cells, n_peaks).
+    Will convert to CSR format if needed for fast row access.
+
+    Expects peak metadata containing:
       - Chromosome, Start, End
       - cisTopic_nr_acc
       - neg: negative-sampling probabilities (global)
@@ -22,7 +25,7 @@ class PeakDataset(IterableDataset[Tuple[int, int, torch.Tensor]]):
 
     def __init__(
         self,
-        X: csc_matrix,
+        X: Union[csr_matrix, csc_matrix],
         chr: np.ndarray,
         centers: np.ndarray,
         neg_distribution: np.ndarray,
@@ -37,8 +40,14 @@ class PeakDataset(IterableDataset[Tuple[int, int, torch.Tensor]]):
         same_chr_negative_prob: float = 0.5,
     ) -> None:
         super().__init__()
-        # Data
-        self.X = X
+        # Data - ensure CSR format for fast row access
+        if not isinstance(X, csr_matrix):
+            if issparse(X):
+                self.X = X.tocsr()
+            else:
+                raise ValueError("X must be a sparse matrix (CSR or CSC)")
+        else:
+            self.X = X
         self.n_cells, self.n_peaks = self.X.shape
         self.chr = chr
         self.centers = centers

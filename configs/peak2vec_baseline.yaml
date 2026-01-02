@@ -22,19 +22,19 @@ sampling:
 
 train:
   embedding_dim: 128
-  pos_weight: 4.0
+  pos_weight: 2.0
   sparse: false
   tie_weights: false
   lr: 0.004
   weight_decay: 0.0
   batch_size: 512
-  epochs: 100
+  epochs: 500
   seed: 4
   device: auto
   num_workers: 0
   pin_memory: true
-  checkpoint_every_epochs: 5
-  save_embeddings_every_epochs: 5
+  checkpoint_every_epochs: 50
+  save_embeddings_every_epochs: 50
   grad_clip_norm: null
 
 wandb:
@@ -46,3 +46,8 @@ wandb:
   mode: online
   save_table: true
   n_per_chromosome: 200
+  visualize_embeddings: true
+  viz_metadata_cols:
+    - Chromosome
+  viz_n_neighbors: 15
+  viz_metric: cosine

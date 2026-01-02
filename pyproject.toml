@@ -13,12 +13,11 @@ dependencies = [
   "typer>=0.12",
   "rich>=13.7",
   "wandb>=0.19",
-  "torch>=2.9.1",
   "scanpy>=1.11.5",
   "muon>=0.1.7",
   "jupyter>=1.1.1",
   "ipywidgets>=8.1.8",
-  "torch>=2.9.1",
+  "torch>=2.6.0",
   "igraph>=1.0.0",
   "dotenv>=0.9.9",
 ]
@@ -34,7 +33,15 @@ build-backend = "hatchling.build"
 packages = ["src/peak2vec"]
 
 [tool.uv.sources]
-torch = [{ index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" }]
+torch = [
+  { index = "pytorch-cu124", marker = "sys_platform == 'linux'" },
+  { index = "pytorch-cu130", marker = "sys_platform == 'win32'" }
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cu130"

@@ -1,5 +1,5 @@
 adata_path: "/lustre/scratch124/cellgen/cellgeni/aljes/peak2vec/data/pbmc10k.h5ad"
-outdir: "/lustre/scratch124/cellgen/cellgeni/aljes/peak2vec/output/baseline"
+outdir: "/lustre/scratch124/cellgen/cellgeni/aljes/peak2vec/output/peak2vec-large"
 
 preprocessing:
   chrom_col: Chromosome
@@ -14,34 +14,34 @@ sampling:
   samples_per_epoch: 20000
   n_pairs: 20
   n_negative: 20
-  trans_fraction: 0.2
-  cis_window: 500000
-  same_chr_negative_prob: 0.5
+  trans_fraction: 0.5
+  cis_window: 300000
+  same_chr_negative_prob: 0.2
   subsample_t: 5.0e-7
   neg_power: 0.75
 
 train:
-  embedding_dim: 128
+  embedding_dim: 512
   pos_weight: 2.0
   sparse: false
   tie_weights: false
   lr: 0.004
-  weight_decay: 0.0
-  batch_size: 512
-  epochs: 500
+  weight_decay: 0.0001
+  batch_size: 1024
+  epochs: 5000
   seed: 4
   device: auto
   num_workers: 0
   pin_memory: true
-  checkpoint_every_epochs: 50
-  save_embeddings_every_epochs: 50
+  checkpoint_every_epochs: 200
+  save_embeddings_every_epochs: 200
   grad_clip_norm: null
 
 wandb:
   project: peak2vec
   entity: claptar
   group: null
-  name: peak2vec-baseline
+  name: peak2vec-large
   tags: []
   mode: online
   save_table: true

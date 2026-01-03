@@ -19,8 +19,8 @@ def visualize_embeddings(
     checkpoint_path: Union[Path, Peak2Vec],
     outdir: Path,
     metadata: Optional[Union[Path, pd.DataFrame]] = None,
-    index_col: str | None = None,
-    n_pcs: int | None = None,
+    index_col: Optional[str] = None,
+    n_pcs: Optional[int] = None,
     n_neighbors: int = 15,
     metric: str = "cosine",
     random_state: int = 4,
@@ -34,9 +34,9 @@ def visualize_embeddings(
     Args:
         checkpoint_path: Path to checkpoint file or Peak2Vec model instance
         outdir: Output directory for visualizations
-        metadata: Path to metadata CSV, DataFrame, or None (for AnnData from model)
-        index_col: Column to use as index when loading CSV
-        n_pcs: Number of PCs for PCA
+        metadata: Path to CSV file, DataFrame with peak metadata, or None for empty metadata
+        index_col: Column to use as index when loading CSV (only used if metadata is a Path)
+        n_pcs: Number of PCs for PCA (None = auto-determined by scanpy)
         n_neighbors: Number of neighbors for UMAP
         metric: Distance metric for UMAP
         random_state: Random seed for UMAP

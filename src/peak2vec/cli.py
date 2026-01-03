@@ -279,7 +279,7 @@ def visualize(
 
     visualize_embeddings(
         checkpoint_path=checkpoint,
-        metadata_path=metadata,
+        metadata=metadata,
         outdir=outdir,
         index_col=index_col,
         n_pcs=n_pcs,

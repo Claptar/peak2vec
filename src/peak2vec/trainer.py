@@ -326,6 +326,11 @@ def train(cfg: ExperimentConfig, *, verbose: bool = False) -> None:
         final_checkpoint,
     )
 
+    if run is not None:
+        artifact = wandb.Artifact(f"final_model", type="model")
+        artifact.add_file(str(final_checkpoint))
+        run.log_artifact(artifact)
+
     # Generate final embedding visualizations
     if cfg.wandb.visualize_embeddings:
         log.info("Generating final embedding visualizations")

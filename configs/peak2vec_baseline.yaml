@@ -1,5 +1,5 @@
 adata_path: "/lustre/scratch124/cellgen/cellgeni/aljes/peak2vec/data/pbmc10k.h5ad"
-outdir: "/lustre/scratch124/cellgen/cellgeni/aljes/output"
+outdir: "/lustre/scratch124/cellgen/cellgeni/aljes/peak2vec/output/baseline"
 
 preprocessing:
   chrom_col: Chromosome
